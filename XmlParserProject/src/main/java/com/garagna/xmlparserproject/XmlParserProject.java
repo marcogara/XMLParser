@@ -11,7 +11,9 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,24 +25,36 @@ import org.xml.sax.Locator;
 
 public class XmlParserProject {
 
-    public static void main(String[] args) {
-		 String[] projectPaths = {
-				"path/to/your/project",
-                "path/to/your/project",
-                "path/to/your/project"
-        };
+	private static final String LOG_FILE = "your_file_name.txt";
 
-        for (String projectPath : projectPaths) {
+	public static void main(String[] args) {
+		File logFile = new File(LOG_FILE);
+		if (logFile.exists())
+		{
+			logFile.delete();
+		}
+        for (String projectPath : getProjectPaths()) {
             processProject(projectPath);
         }
+    }
+
+    private static String[] getProjectPaths() {
+        return new String[]{
+                "your\\file\\path\\p1",
+                "your\\file\\path\\p2",
+                "your\\file\\path\\p3"
+        };
     }
 
 	private static void processProject(String rootPath)
 	{
 		String projectName = Paths.get(rootPath).getFileName().toString();
-        System.out.println(projectName);
 
 		try {
+			File logFile = new File(LOG_FILE);
+            System.setOut(new PrintStream(new FileOutputStream(logFile, true))); // Append to the same file
+			System.out.println(projectName);
+
             Files.walkFileTree(Paths.get(rootPath), EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE,
                     new SimpleFileVisitor<Path>() {
                         @Override
@@ -104,12 +118,22 @@ public class XmlParserProject {
 
 			currentElementName = qName;  // Store the qualified name of the current element
 
+			// Check 'text' attribute
 			String textAttribute = attributes.getValue("text");
 			if (textAttribute != null && !textAttribute.isEmpty() && !textAttribute.startsWith("#")) {
-				System.out.println("Missing '#' in 'text' attribute at line " + this.locator.getLineNumber() + " in element: " + currentElementName + " in file: " + currentFileName);
-				// You can log this information instead of printing to the console
-            }
+			logIssue("text", textAttribute);
+			}
+
+			// Check 'label' attribute
+			String labelAttribute = attributes.getValue("label");
+			if (labelAttribute != null && !labelAttribute.isEmpty() && !labelAttribute.startsWith("#")) {
+			logIssue("label", labelAttribute);
+			}
+		}
+
+		private void logIssue(String attributeName, String attributeValue) {
+		System.out.println("Missing '#' in '" + attributeName + "' attribute at line " + this.locator.getLineNumber()
+            + " in element: " + currentElementName + " with value: '" + attributeValue + "' in file: " + currentFileName);
         }
     }
 }
-
