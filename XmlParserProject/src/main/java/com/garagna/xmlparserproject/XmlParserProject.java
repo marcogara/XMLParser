@@ -19,6 +19,8 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.EnumSet;
 
+import org.xml.sax.Locator;
+
 public class XmlParserProject {
 
     public static void main(String[] args) {
@@ -30,6 +32,15 @@ public class XmlParserProject {
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                             if (file.toString().endsWith(".jsp")) {
                                 parseJspFile(file.toString());
+                            }
+                            return FileVisitResult.CONTINUE;
+                        }
+
+						@Override
+                        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                            // Check if the directory contains "target"
+                            if (dir.toString().contains("target")) {
+                                return FileVisitResult.SKIP_SUBTREE; // Skip the entire subtree
                             }
                             return FileVisitResult.CONTINUE;
                         }
@@ -51,50 +62,37 @@ public class XmlParserProject {
             SAXParser saxParser = factory.newSAXParser();
             MyHandler handler = new MyHandler(filePath);
             saxParser.parse(new File(filePath), handler);
-            handler.printResult();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     private static class MyHandler extends DefaultHandler {
-        private int lineNumber = 0;
+		private Locator locator;
         private String currentFileName;
-        private boolean foundIssue = false;
+		private String currentElementName;
 
         public MyHandler(String currentFileName) {
             this.currentFileName = currentFileName;
         }
 
+		@Override
+		public void setDocumentLocator(Locator locator)
+		{
+			this.locator = locator;
+		}
+
         @Override
         public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
-            lineNumber++;
-            if ("ui:label".equals(qName)) {
-                String textAttribute = attributes.getValue("text");
-                if (textAttribute != null && !textAttribute.isEmpty() && !textAttribute.contains("#")) {
-                    foundIssue = true;
-                    System.out.println("Missing '#' in 'text' attribute at line " + lineNumber + " in file: " + currentFileName);
-                    // You can log this information instead of printing to the console
-                }
-            }
-        }
 
-        @Override
-        public void startDocument() throws SAXException {
-            currentFileName = ""; // Initialize the currentFileName
-        }
+			currentElementName = qName;  // Store the qualified name of the current element
 
-        @Override
-        public void endDocument() throws SAXException {
-            if (!foundIssue) {
-                System.out.println("ok");
-            }
-        }
-
-        public void printResult() {
-            if (foundIssue) {
-                System.out.println("Issues found in file: " + currentFileName);
+			String textAttribute = attributes.getValue("text");
+			if (textAttribute != null && !textAttribute.isEmpty() && !textAttribute.startsWith("#")) {
+				System.out.println("Missing '#' in 'text' attribute at line " + this.locator.getLineNumber() + " in element: " + currentElementName + " in file: " + currentFileName);
+				// You can log this information instead of printing to the console
             }
         }
     }
 }
+
